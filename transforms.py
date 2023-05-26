@@ -85,46 +85,74 @@ def _quaternion_multiply(q0, q1):
 
 
 class TCPTransforms:
-    def __init__(self, node):
+    def __init__(self, node, tcp_link_name='tcp_link', tool_link_name='tcp_gripper'):
+        """
+        TCP transformation helper class
+
+        :param node: parent node to handle tf listener
+        :param tcp_link_name: frame of the tcp (planning frame)
+        :param: tool_link_name: working frame that should coincide with goal pose after motion
+        """
         self.node = node
 
         # initialize TF2 listener and broadcaster
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
+        # store the tool transform
+        self.tcp_frame = tcp_link_name
+        self.tool_frame = tool_link_name
 
-    def to_from_tcp_pose_conversion(self, pose_source_frame, source_frame, target_frame, rotation=True):
-        """Rotation is used when pose is intended for TCP to be in it"""
+    def to_from_tcp_pose_conversion(self, pose_source_frame, source_frame, target_frame, apply_tool_offset=True):
+        """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
+
+        # frame transforms
+        # P_tcp|tgt = tgt_T_src * P_tcp|src
+        # tgt_T_src = lookup(target_frame, source_frame) = src_tgt_transform
+        # P_tcp|src = src_T_tool * P_tcp|tool = tcp_pose_source_frame
+        # src_T_tool = tool_src_transform (from input pose)
+        # P_tcp|tool = tcp_pose_tool_frame (from tcp_tool_transform = lookup(tool, tcp))
 
         rate = self.node.create_rate(1)
         for t in range(1, 6):
-          try:
-              transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
-              break
-          except TransformException as e:
-              self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
-              if t == 5:
-                  return None
-              self.node.get_logger().info(f"Trying {5-t} more times ...")
-              rate.sleep()
+            try:
+                src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+                if apply_tool_offset:
+                    # transformation from tcp to tool
+                    tcp_tool_transform = self.tf_buffer.lookup_transform(self.tool_frame, self.tcp_frame, rclpy.time.Time())
+                    # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
+                    tcp_pose_tool_frame = tf2_geometry_msgs.Pose()
+                    #tcp_pose_tool_frame.header.frame_id = self.tool_frame
+                    tcp_pose_tool_frame.position.x = tcp_tool_transform.transform.translation.x
+                    tcp_pose_tool_frame.position.y = tcp_tool_transform.transform.translation.y
+                    tcp_pose_tool_frame.position.z = tcp_tool_transform.transform.translation.z
+                    tcp_pose_tool_frame.orientation = tcp_tool_transform.transform.rotation
+                    # create a transform from source tool to source frame
+                    tool_src_transform = tf2_geometry_msgs.TransformStamped()
+                    tool_src_transform.header.frame_id = source_frame
+                    tool_src_transform.child_frame_id = self.tool_frame
+                    tool_src_transform.transform.translation.x = pose_source_frame.position.x
+                    tool_src_transform.transform.translation.y = pose_source_frame.position.y
+                    tool_src_transform.transform.translation.z = pose_source_frame.position.z
+                    tool_src_transform.transform.rotation = pose_source_frame.orientation
+                else:
+                    tcp_pose_tool_frame = None
+                    tool_src_transform = None
+                break
+            except TransformException as e:
+                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
+                if t == 5:
+                    return None
+                self.node.get_logger().info(f"Trying {5-t} more times ...")
+                rate.sleep()
 
-        pose_target_frame = tf2_geometry_msgs.do_transform_pose(pose_source_frame, transform)
-
-        if rotation:
-            # Rotate for 180° about local Y
-            q_rot = _quaternion_from_euler(0, math.pi, 0)
-            q_in = numpy.empty((4, ))
-            q_in[0] = pose_target_frame.orientation.x
-            q_in[1] = pose_target_frame.orientation.y
-            q_in[2] = pose_target_frame.orientation.z
-            q_in[3] = pose_target_frame.orientation.w
-
-            q_in = _quaternion_multiply(q_in, q_rot)
-
-            # Made the gripper look down
-            pose_target_frame.orientation.x = q_in[0]
-            pose_target_frame.orientation.y = q_in[1]
-            pose_target_frame.orientation.z = q_in[2]
-            pose_target_frame.orientation.w = q_in[3]
+        if tcp_pose_tool_frame is not None:
+            # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose 
+            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_tool_frame, tool_src_transform)
+        else:
+            # the tcp pose is the source pose
+            tcp_pose_source_frame = pose_source_frame
+        # apply the target frame to source frame transformation
+        pose_target_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_source_frame, src_tgt_transform)
 
         return pose_target_frame
