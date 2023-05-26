@@ -23,6 +23,7 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 def _quaternion_from_euler(ai, aj, ak):
+    # quaternion order is [qx, qy, qz, qw]
     ai /= 2.0
     aj /= 2.0
     ak /= 2.0
@@ -110,15 +111,15 @@ class TCPTransforms:
         pose_target_frame = tf2_geometry_msgs.do_transform_pose(pose_source_frame, transform)
 
         if rotation:
-            # Rotate for 180° about Y
-            q_rot = _quaternion_from_euler(0, 0, math.pi)
+            # Rotate for 180° about local Y
+            q_rot = _quaternion_from_euler(0, math.pi, 0)
             q_in = numpy.empty((4, ))
             q_in[0] = pose_target_frame.orientation.x
             q_in[1] = pose_target_frame.orientation.y
             q_in[2] = pose_target_frame.orientation.z
             q_in[3] = pose_target_frame.orientation.w
 
-            q_in = _quaternion_multiply(q_rot, q_in)
+            q_in = _quaternion_multiply(q_in, q_rot)
 
             # Made the gripper look down
             pose_target_frame.orientation.x = q_in[0]
