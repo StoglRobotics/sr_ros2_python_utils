@@ -21,6 +21,7 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from geometry_msgs.msg import Pose
 
 def _quaternion_from_euler(ai, aj, ak):
     # quaternion order is [qx, qy, qz, qw]
@@ -103,7 +104,7 @@ class TCPTransforms:
         self.tcp_frame = tcp_link_name
         self.tool_frame = tool_link_name
 
-    def to_from_tcp_pose_conversion(self, pose_source_frame, source_frame, target_frame, apply_tool_offset=True):
+    def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset=True) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
 
         # frame transforms
