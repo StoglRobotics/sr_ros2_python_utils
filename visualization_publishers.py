@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from geometry_msgs.msg import PoseStamped, TransformStamped
-from tf2_ros import TransformBroadcaster
+from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
 class VisualizatonPublisher:
@@ -26,9 +26,10 @@ class VisualizatonPublisher:
         """
         self.node = node
         self.tf_broadcaster = TransformBroadcaster(self.node)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self.node)
 
 
-    def publish_pose_as_transform(self, pose, frame_id, child_frame_id):
+    def publish_pose_as_transform(self, pose, frame_id, child_frame_id, is_static=False):
         """
         Publish a Pose as a Transform to visualize with Rviz2 using "Axis" display.
 
@@ -50,12 +51,16 @@ class VisualizatonPublisher:
         trafo.transform.rotation.z = pose.orientation.z
         trafo.transform.rotation.w = pose.orientation.w
 
-        self.tf_broadcaster.sendTransform(trafo)
+        if is_static:
+            self.tf_static_broadcaster.sendTransform(trafo)
+        else:
+            self.tf_broadcaster.sendTransform(trafo)
+
 
         return True
 
 
-    def publish_pose_stamped_as_transform(self, pose, child_frame_id):
+    def publish_pose_stamped_as_transform(self, pose, child_frame_id, is_static=False):
         """
         Publish a Stamped Pose as a Transform to visualize with Rviz2 using "Axis" display.
 
@@ -68,4 +73,4 @@ class VisualizatonPublisher:
             self.node.get_logger().error("To publish pose stamped as transform `frame_id` in the header has to be set!")
             return False
 
-        return self.publish_pose_as_transform(pose.pose, pose.header.frame_id, child_frame_id)
+        return self.publish_pose_as_transform(pose.pose, pose.header.frame_id, child_frame_id, is_static)
