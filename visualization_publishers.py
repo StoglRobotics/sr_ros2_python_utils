@@ -28,6 +28,7 @@ class VisualizatonPublisher:
         self.node = node
         self.tf_broadcaster = TransformBroadcaster(self.node)
         self.tf_static_broadcasters = {}
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self.node)
 
 
     def publish_pose_as_transform(self, pose:Pose, frame_id:str, child_frame_id:str, is_static:bool=False) -> bool:
@@ -53,19 +54,11 @@ class VisualizatonPublisher:
         trafo.transform.rotation.w = pose.orientation.w
 
         if is_static:
-            # check if the transform already exists
-            pair = (frame_id, child_frame_id)
-            tf_exists = False
-            for key in self.tf_static_broadcasters.keys():
-                if pair == key:
-                    tf_exists = True
-                    break
-            if not tf_exists:
-                # create a new static broadcaster
-                self.tf_static_broadcasters[pair] = StaticTransformBroadcaster(self.node)
-            self.tf_static_broadcasters[pair].sendTransform(trafo)                
+            self.tf_static_broadcaster.sendTransform(trafo)
         else:
             self.tf_broadcaster.sendTransform(trafo)
+
+
         return True
 
 
