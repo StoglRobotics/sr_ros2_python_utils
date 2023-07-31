@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from geometry_msgs.msg import PoseStamped, TransformStamped
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped, Pose, TransformStamped
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
 class VisualizatonPublisher:
 
-    def __init__(self, node):
+    def __init__(self, node:Node) -> None:
         """
         Create and prepare class by providing a node.
 
@@ -29,7 +30,7 @@ class VisualizatonPublisher:
         self.tf_static_broadcasters = {}
 
 
-    def publish_pose_as_transform(self, pose, frame_id, child_frame_id, is_static=False):
+    def publish_pose_as_transform(self, pose:Pose, frame_id:str, child_frame_id:str, is_static:bool=False) -> bool:
         """
         Publish a Pose as a Transform to visualize with Rviz2 using "Axis" display.
 
@@ -68,7 +69,7 @@ class VisualizatonPublisher:
         return True
 
 
-    def publish_pose_stamped_as_transform(self, pose, child_frame_id, is_static=False):
+    def publish_pose_stamped_as_transform(self, pose:PoseStamped, child_frame_id:str, is_static:bool=False) -> bool:
         """
         Publish a Stamped Pose as a Transform to visualize with Rviz2 using "Axis" display.
 
