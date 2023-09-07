@@ -21,10 +21,7 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-<<<<<<< Updated upstream
-=======
 from geometry_msgs.msg import Vector3, Vector3Stamped, Pose
->>>>>>> Stashed changes
 
 def _quaternion_from_euler(ai, aj, ak):
     # quaternion order is [qx, qy, qz, qw]
