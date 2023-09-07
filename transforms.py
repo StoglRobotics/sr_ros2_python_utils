@@ -165,4 +165,3 @@ class TCPTransforms:
         vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame ,src_tgt_transform)
 
         return vec3_target_frame.vector
-
