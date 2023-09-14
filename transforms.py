@@ -23,7 +23,8 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, Vector3, Vector3Stamped
+
 
 def _quaternion_from_euler(ai:float, aj:float, ak:float):
     # quaternion order is [qx, qy, qz, qw]
@@ -159,3 +160,11 @@ class TCPTransforms:
         pose_target_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_source_frame, src_tgt_transform)
 
         return pose_target_frame
+    
+    def to_from_tcp_vec3_conversion(self, vec3_source_frame: Vector3Stamped, source_frame: str, target_frame: str) -> Vector3:
+        """Apply tf transformation to a vector3"""
+        src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+
+        vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame ,src_tgt_transform)
+
+        return vec3_target_frame.vector
