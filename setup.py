@@ -17,7 +17,6 @@ setup(
     maintainer_email='denis@stoglrobotics.de',
     description='Python Utils for ROS 2 you might find useful!',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
         ],
