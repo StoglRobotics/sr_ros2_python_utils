@@ -14,16 +14,19 @@
 
 import math
 import numpy
+from numpy.typing import ArrayLike
 
 import rclpy
+from rclpy.node import Node
 
 import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from geometry_msgs.msg import Vector3, Vector3Stamped, Pose
+from geometry_msgs.msg import Pose, Vector3, Vector3Stamped
 
-def _quaternion_from_euler(ai, aj, ak):
+
+def _quaternion_from_euler(ai:float, aj:float, ak:float):
     # quaternion order is [qx, qy, qz, qw]
     ai /= 2.0
     aj /= 2.0
@@ -48,7 +51,7 @@ def _quaternion_from_euler(ai, aj, ak):
     return q
 
 
-def _quaternion_multiply(q0, q1):
+def _quaternion_multiply(q0:ArrayLike, q1:ArrayLike) -> ArrayLike:
     """
     Multiplies two quaternions. Convention used [qx, qy, qz, qw]
 
@@ -86,7 +89,7 @@ def _quaternion_multiply(q0, q1):
 
 
 class TCPTransforms:
-    def __init__(self, node, tcp_link_name='tcp_link', tool_link_name='tcp_gripper'):
+    def __init__(self, node:Node, tcp_link_name:str='tcp_link', tool_link_name:str='tcp_gripper') -> None:
         """
         TCP transformation helper class
 
@@ -104,7 +107,7 @@ class TCPTransforms:
         self.tcp_frame = tcp_link_name
         self.tool_frame = tool_link_name
 
-    def to_from_tcp_pose_conversion(self, pose_source_frame, source_frame, target_frame, apply_tool_offset=True):
+    def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset:bool=True) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
 
         # frame transforms
