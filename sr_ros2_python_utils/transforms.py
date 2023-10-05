@@ -184,10 +184,19 @@ class TCPTransforms:
         pose_target_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_source_frame, src_tgt_transform)
 
         return pose_target_frame
-    
+
+
     def to_from_tcp_vec3_conversion(self, vec3_source_frame: Vector3Stamped, source_frame: str, target_frame: str) -> Vector3:
         """Apply tf transformation to a vector3"""
-        src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+        for t in range(1, 6):
+            try:
+                src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+            except TransformException as e:
+                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
+                if t == 5:
+                    return None
+                self.node.get_logger().info(f"Trying {5-t} more times ...")
+                rate.sleep()
 
         vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame ,src_tgt_transform)
 
