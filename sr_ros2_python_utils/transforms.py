@@ -26,6 +26,7 @@ from tf2_ros.transform_listener import TransformListener
 from geometry_msgs.msg import Pose, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
 
+
 def _euler_from_quaternion(quaternion):
     """
     Converts quaternion (w in last place) to euler roll, pitch, yaw
@@ -130,6 +131,9 @@ class TCPTransforms:
         # store the tool transform
         self.tcp_frame = tcp_link_name
         self.tool_frame = tool_link_name
+
+    def get_transform(self, target_frame: str, source_frame: str,):
+        return self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
 
     def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset:bool=True) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
