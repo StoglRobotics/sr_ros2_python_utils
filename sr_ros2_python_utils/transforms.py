@@ -23,7 +23,7 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from geometry_msgs.msg import Pose, Vector3, Vector3Stamped
+from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
 
 
@@ -134,6 +134,9 @@ class TCPTransforms:
 
     def get_transform(self, target_frame: str, source_frame: str,):
         return self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+    
+    def to_target_frame(self, pose_stamped: PoseStamped, target_frame: str):
+        return self.tf_buffer.transform(pose_stamped, target_frame)
 
     def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset:bool=True) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
