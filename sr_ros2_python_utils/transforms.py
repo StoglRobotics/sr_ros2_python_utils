@@ -113,7 +113,7 @@ def _quaternion_multiply(q0:ArrayLike, q1:ArrayLike) -> ArrayLike:
 
 
 class TCPTransforms:
-    def __init__(self, node:Node, tcp_link_name:str='tcp_link', tool_link_name:str='tcp_gripper') -> None:
+    def __init__(self, node:Node, tcp_link_name:str='tcp_link', tool_link_name:str='tcp_link') -> None:
         """
         TCP transformation helper class
 
