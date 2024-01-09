@@ -19,6 +19,8 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
+            "calculate_point_transformed = sr_ros2_python_utils.calculate_point_transformed:trasform_base",
+            "trasform_frame = sr_ros2_python_utils.calculate_point_transformed:transform_frame",
         ],
     },
 )

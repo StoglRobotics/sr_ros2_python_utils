@@ -23,8 +23,9 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from geometry_msgs.msg import Pose, Vector3, Vector3Stamped
+from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
+
 
 def _euler_from_quaternion(quaternion):
     """
@@ -131,6 +132,27 @@ class TCPTransforms:
         self.tcp_frame = tcp_link_name
         self.tool_frame = tool_link_name
 
+    def get_transform(self, target_frame: str, source_frame: str):
+        transform = None
+        rate = self.node.create_rate(1)
+        for t in range(1, 6):
+            try:
+                transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+            except TransformException as e:
+                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
+                if t == 5:
+                    self.node.get_logger().error(f"Transform between {source_frame} and {target_frame} does not exist or the data are too old!")
+                    return None
+                self.node.get_logger().info(f"Trying {5-t} more times ...")
+                rate.sleep()
+
+        return transform
+
+    def to_target_frame(self, pose_stamped: PoseStamped, target_frame: str):
+        if not self.get_transform(target_frame, pose_stamped.header.frame_id):
+            return None
+        return self.tf_buffer.transform(pose_stamped, target_frame)
+
     def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset: bool=True) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
 
@@ -141,38 +163,32 @@ class TCPTransforms:
         # src_T_tool = tool_src_transform (from input pose)
         # P_tcp|tool = tcp_pose_tool_frame (from tcp_tool_transform = lookup(tool, tcp))
 
-        rate = self.node.create_rate(1)
-        for t in range(1, 6):
-            try:
-                src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
-                if apply_tool_offset:
-                    # transformation from tcp to tool
-                    tcp_tool_transform = self.tf_buffer.lookup_transform(self.tool_frame, self.tcp_frame, rclpy.time.Time())
-                    # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
-                    tcp_pose_tool_frame = tf2_geometry_msgs.Pose()
-                    #tcp_pose_tool_frame.header.frame_id = self.tool_frame
-                    tcp_pose_tool_frame.position.x = tcp_tool_transform.transform.translation.x
-                    tcp_pose_tool_frame.position.y = tcp_tool_transform.transform.translation.y
-                    tcp_pose_tool_frame.position.z = tcp_tool_transform.transform.translation.z
-                    tcp_pose_tool_frame.orientation = tcp_tool_transform.transform.rotation
-                    # create a transform from source tool to source frame
-                    tool_src_transform = tf2_geometry_msgs.TransformStamped()
-                    tool_src_transform.header.frame_id = source_frame
-                    tool_src_transform.child_frame_id = self.tool_frame
-                    tool_src_transform.transform.translation.x = pose_source_frame.position.x
-                    tool_src_transform.transform.translation.y = pose_source_frame.position.y
-                    tool_src_transform.transform.translation.z = pose_source_frame.position.z
-                    tool_src_transform.transform.rotation = pose_source_frame.orientation
-                else:
-                    tcp_pose_tool_frame = None
-                    tool_src_transform = None
-                break
-            except TransformException as e:
-                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
-                if t == 5:
-                    return None
-                self.node.get_logger().info(f"Trying {5-t} more times ...")
-                rate.sleep()
+        src_tgt_transform = self.get_transform(target_frame, source_frame)
+        if not src_tgt_transform:
+            return None
+        if apply_tool_offset:
+            # transformation from tcp to tool
+            tcp_tool_transform = self.get_transform(self.tool_frame, self.tcp_frame)
+            if not tcp_tool_transform:
+                return None
+            # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
+            tcp_pose_tool_frame = tf2_geometry_msgs.Pose()
+            #tcp_pose_tool_frame.header.frame_id = self.tool_frame
+            tcp_pose_tool_frame.position.x = tcp_tool_transform.transform.translation.x
+            tcp_pose_tool_frame.position.y = tcp_tool_transform.transform.translation.y
+            tcp_pose_tool_frame.position.z = tcp_tool_transform.transform.translation.z
+            tcp_pose_tool_frame.orientation = tcp_tool_transform.transform.rotation
+            # create a transform from source tool to source frame
+            tool_src_transform = tf2_geometry_msgs.TransformStamped()
+            tool_src_transform.header.frame_id = source_frame
+            tool_src_transform.child_frame_id = self.tool_frame
+            tool_src_transform.transform.translation.x = pose_source_frame.position.x
+            tool_src_transform.transform.translation.y = pose_source_frame.position.y
+            tool_src_transform.transform.translation.z = pose_source_frame.position.z
+            tool_src_transform.transform.rotation = pose_source_frame.orientation
+        else:
+            tcp_pose_tool_frame = None
+            tool_src_transform = None
 
         if tcp_pose_tool_frame is not None:
             # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose 
@@ -188,16 +204,10 @@ class TCPTransforms:
 
     def to_from_tcp_vec3_conversion(self, vec3_source_frame: Vector3Stamped, source_frame: str, target_frame: str) -> Vector3:
         """Apply tf transformation to a vector3"""
-        for t in range(1, 6):
-            try:
-                src_tgt_transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
-            except TransformException as e:
-                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
-                if t == 5:
-                    return None
-                self.node.get_logger().info(f"Trying {5-t} more times ...")
-                rate.sleep()
+        src_tgt_transform = self.get_transform(target_frame, source_frame)
+        if not src_tgt_transform:
+            return None
 
-        vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame ,src_tgt_transform)
+        vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame, src_tgt_transform)
 
         return vec3_target_frame.vector
