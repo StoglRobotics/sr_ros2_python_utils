@@ -27,6 +27,13 @@ from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
 
 
+def _apply_local_offset(pose:PoseStamped, x:float=0.0, y:float=0.0, z:float=0.0):
+    """Applies linear offset to the given pose in the local coordinate system"""
+    result_pose = pose
+    result_pose = pose.pose.position.x + x
+    result_pose = pose.pose.position.y + y
+    result_pose = pose.pose.position.z + z
+
 def _euler_from_quaternion(quaternion):
     """
     Converts quaternion (w in last place) to euler roll, pitch, yaw
