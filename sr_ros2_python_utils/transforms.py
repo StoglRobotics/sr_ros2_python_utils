@@ -27,12 +27,14 @@ from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
 
 
-def _apply_local_offset(pose:PoseStamped, x:float=0.0, y:float=0.0, z:float=0.0):
+def _apply_local_offset(pose:PoseStamped, x:float=0.0, y:float=0.0, z:float=0.0) -> PoseStamped:
     """Applies linear offset to the given pose in the local coordinate system"""
     result_pose = pose
-    result_pose = pose.pose.position.x + x
-    result_pose = pose.pose.position.y + y
-    result_pose = pose.pose.position.z + z
+    result_pose.pose.position.x += x
+    result_pose.pose.position.y += y
+    result_pose.pose.position.z += z
+    
+    return result_pose
 
 def _euler_from_quaternion(quaternion):
     """
