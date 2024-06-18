@@ -27,14 +27,17 @@ from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
 from numpy import arctan2, arcsin
 
 
-def _apply_local_offset(pose:PoseStamped, x:float=0.0, y:float=0.0, z:float=0.0) -> PoseStamped:
+def _apply_local_offset(
+    pose: PoseStamped, x: float = 0.0, y: float = 0.0, z: float = 0.0
+) -> PoseStamped:
     """Applies linear offset to the given pose in the local coordinate system"""
     result_pose = pose
     result_pose.pose.position.x += x
     result_pose.pose.position.y += y
     result_pose.pose.position.z += z
-    
+
     return result_pose
+
 
 def _euler_from_quaternion(quaternion):
     """
@@ -60,7 +63,8 @@ def _euler_from_quaternion(quaternion):
 
     return roll, pitch, yaw
 
-def _quaternion_from_euler(ai:float, aj:float, ak:float):
+
+def _quaternion_from_euler(ai: float, aj: float, ak: float):
     # quaternion order is [qx, qy, qz, qw]
     ai /= 2.0
     aj /= 2.0
@@ -71,21 +75,21 @@ def _quaternion_from_euler(ai:float, aj:float, ak:float):
     sj = math.sin(aj)
     ck = math.cos(ak)
     sk = math.sin(ak)
-    cc = ci*ck
-    cs = ci*sk
-    sc = si*ck
-    ss = si*sk
+    cc = ci * ck
+    cs = ci * sk
+    sc = si * ck
+    ss = si * sk
 
-    q = numpy.empty((4, ))
-    q[0] = cj*sc - sj*cs
-    q[1] = cj*ss + sj*cc
-    q[2] = cj*cs - sj*sc
-    q[3] = cj*cc + sj*ss
+    q = numpy.empty((4,))
+    q[0] = cj * sc - sj * cs
+    q[1] = cj * ss + sj * cc
+    q[2] = cj * cs - sj * sc
+    q[3] = cj * cc + sj * ss
 
     return q
 
 
-def _quaternion_multiply(q0:ArrayLike, q1:ArrayLike) -> ArrayLike:
+def _quaternion_multiply(q0: ArrayLike, q1: ArrayLike) -> ArrayLike:
     """
     Multiplies two quaternions. Convention used [qx, qy, qz, qw]
 
@@ -123,7 +127,9 @@ def _quaternion_multiply(q0:ArrayLike, q1:ArrayLike) -> ArrayLike:
 
 
 class TCPTransforms:
-    def __init__(self, node:Node, tcp_link_name:str='tcp_link', tool_link_name:str='tcp_gripper') -> None:
+    def __init__(
+        self, node: Node, tcp_link_name: str = "tcp_link", tool_link_name: str = "tcp_gripper"
+    ) -> None:
         """
         TCP transformation helper class
 
@@ -146,11 +152,17 @@ class TCPTransforms:
         rate = self.node.create_rate(1)
         for t in range(1, 6):
             try:
-                transform = self.tf_buffer.lookup_transform(target_frame, source_frame, rclpy.time.Time())
+                transform = self.tf_buffer.lookup_transform(
+                    target_frame, source_frame, rclpy.time.Time()
+                )
             except TransformException as e:
-                self.node.get_logger().warn(f"Could not transform '{source_frame}' to '{target_frame}': {e}")
+                self.node.get_logger().warn(
+                    f"Could not transform '{source_frame}' to '{target_frame}': {e}"
+                )
                 if t == 5:
-                    self.node.get_logger().error(f"Transform between {source_frame} and {target_frame} does not exist or the data are too old!")
+                    self.node.get_logger().error(
+                        f"Transform between {source_frame} and {target_frame} does not exist or the data are too old!"
+                    )
                     return None
                 self.node.get_logger().info(f"Trying {5-t} more times ...")
                 rate.sleep()
@@ -182,7 +194,7 @@ class TCPTransforms:
                 return None
             # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
             tcp_pose_tool_frame = tf2_geometry_msgs.Pose()
-            #tcp_pose_tool_frame.header.frame_id = self.tool_frame
+            # tcp_pose_tool_frame.header.frame_id = self.tool_frame
             tcp_pose_tool_frame.position.x = tcp_tool_transform.transform.translation.x
             tcp_pose_tool_frame.position.y = tcp_tool_transform.transform.translation.y
             tcp_pose_tool_frame.position.z = tcp_tool_transform.transform.translation.z
@@ -200,23 +212,30 @@ class TCPTransforms:
             tool_src_transform = None
 
         if tcp_pose_tool_frame is not None:
-            # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose 
-            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_tool_frame, tool_src_transform)
+            # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose
+            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose(
+                tcp_pose_tool_frame, tool_src_transform
+            )
         else:
             # the tcp pose is the source pose
             tcp_pose_source_frame = pose_source_frame
         # apply the target frame to source frame transformation
-        pose_target_frame = tf2_geometry_msgs.do_transform_pose(tcp_pose_source_frame, src_tgt_transform)
+        pose_target_frame = tf2_geometry_msgs.do_transform_pose(
+            tcp_pose_source_frame, src_tgt_transform
+        )
 
         return pose_target_frame
 
-
-    def to_from_tcp_vec3_conversion(self, vec3_source_frame: Vector3Stamped, source_frame: str, target_frame: str) -> Vector3:
+    def to_from_tcp_vec3_conversion(
+        self, vec3_source_frame: Vector3Stamped, target_frame: str
+    ) -> Vector3Stamped:
         """Apply tf transformation to a vector3"""
-        src_tgt_transform = self.get_transform(target_frame, source_frame)
+        src_tgt_transform = self.get_transform(target_frame, vec3_source_frame.header.frame_id)
         if not src_tgt_transform:
             return None
 
-        vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(vec3_source_frame, src_tgt_transform)
+        vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(
+            vec3_source_frame, src_tgt_transform
+        )
 
-        return vec3_target_frame.vector
+        return vec3_target_frame
