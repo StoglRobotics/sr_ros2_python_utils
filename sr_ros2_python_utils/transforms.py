@@ -174,7 +174,87 @@ class TCPTransforms:
             return None
         return self.tf_buffer.transform(pose_stamped, target_frame)
 
-    def to_from_tcp_pose_conversion(self, pose_source_frame: Pose, source_frame: str, target_frame: str, apply_tool_offset: bool=True) -> Pose:
+    def tcp_pose_shifted_by_tool_pose(
+        self,
+        pose_source_frame: Pose,
+        source_frame: str,
+        target_frame: str,
+        apply_tool_offset: bool,
+    ) -> Pose:
+        """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
+
+        # frame transforms
+        # P_tcp|tool = tcp_pose_tool_frame (from tcp_tool_transform = lookup(tool, tcp))
+        # src_T_tool = tool_src_transform (from input pose)
+        # P_tcp|src = src_T_tool * P_tcp|tool = tcp_pose_source_frame
+        # tgt_T_src = lookup(target_frame, source_frame) = src_tgt_transform
+        # P_tcp|tgt = tgt_T_src * P_tcp|src
+
+        src_tgt_transform = self.get_transform(target_frame, source_frame)
+        if not src_tgt_transform:
+            return None
+
+        if apply_tool_offset:
+            # transformation from tcp to tool
+            tcp_in_tool_transform = self.get_transform(self.tool_frame, self.tcp_frame)
+            print(f"tcp_in_tool_transform {tcp_in_tool_transform}")
+            if not tcp_in_tool_transform:
+                return None
+            # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
+            tcp_pose_tool_frame = tf2_geometry_msgs.PoseStamped()
+            tcp_pose_tool_frame.header.frame_id = self.tool_frame
+            tcp_pose_tool_frame.pose.position.x = -tcp_in_tool_transform.transform.translation.x
+            tcp_pose_tool_frame.pose.position.y = tcp_in_tool_transform.transform.translation.y
+            tcp_pose_tool_frame.pose.position.z = -tcp_in_tool_transform.transform.translation.z
+            tcp_pose_tool_frame.pose.orientation = tcp_in_tool_transform.transform.rotation
+
+            # Rotate TCP Pose in Tool to the source frame
+            tool_source_transform = self.get_transform(source_frame, self.tool_frame)
+            tool_source_transform.transform.translation.x = 0.0
+            tool_source_transform.transform.translation.y = 0.0
+            tool_source_transform.transform.translation.z = 0.0
+            # tcp_pose_tool_frame = tf2_geometry_msgs.do_transform_pose_stamped(
+            #     tcp_pose_tool_frame, tool_source_transform
+            # )
+            print(f"tool_source_transform {tool_source_transform}")
+            print(f"tcp_pose_tool_frame {tcp_pose_tool_frame}")
+
+            # create a transform from source tool to source frame
+            tool_src_transform = tf2_geometry_msgs.TransformStamped()
+            tool_src_transform.header.frame_id = source_frame
+            tool_src_transform.child_frame_id = self.tool_frame
+            tool_src_transform.transform.translation.x = pose_source_frame.position.x
+            tool_src_transform.transform.translation.y = pose_source_frame.position.y
+            tool_src_transform.transform.translation.z = pose_source_frame.position.z
+            tool_src_transform.transform.rotation = pose_source_frame.orientation
+        else:
+            tcp_pose_tool_frame = None
+            tool_src_transform = None
+
+        if tcp_pose_tool_frame is not None:
+            # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose
+            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose_stamped(
+                tcp_pose_tool_frame, tool_src_transform
+            )
+            print(f"tcp_pose_source_frame {tcp_pose_source_frame}")
+        else:
+            # the tcp pose is the source pose
+            tcp_pose_source_frame = pose_source_frame
+        # apply the target frame to source frame transformation
+        pose_target_frame = tf2_geometry_msgs.do_transform_pose_stamped(
+            tcp_pose_source_frame, src_tgt_transform
+        )
+        print(f"pose_target_frame {pose_target_frame}")
+
+        return pose_target_frame.pose
+
+    def to_from_tcp_pose_conversion(
+        self,
+        pose_source_frame: Pose,
+        source_frame: str,
+        target_frame: str,
+        apply_tool_offset: bool = True,
+    ) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
 
         # frame transforms
