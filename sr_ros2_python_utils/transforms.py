@@ -23,7 +23,7 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped
+from geometry_msgs.msg import Pose, PoseStamped, Vector3, Vector3Stamped, TransformStamped
 from numpy import arctan2, arcsin
 
 
@@ -248,14 +248,24 @@ class TCPTransforms:
 
         return pose_target_frame.pose
 
+    # 1. use PoseStamped in a new method with sensible name better then "to_from_tcp_pose_conversion"
+    # 2. Use the new method from "to_from_tcp_pose_conversion"
+    # 3. Use the new method everywhere you can find and switch fastly (if necessray add an intermdeide variable with PoseStamped to the code and then extract the pose for the rest)
+    # 4. Add deprication notice to "to_from_tcp_pose_conversion" as "rclpy.warn()"
+
     def to_from_tcp_pose_conversion(
         self,
         pose_source_frame: Pose,
         source_frame: str,
         target_frame: str,
         apply_tool_offset: bool = True,
+        ignore_tool_to_tcp_rotation: bool = False,
     ) -> Pose:
         """apply_tool_tf is used when pose source should be first transformed locally with a tool offset"""
+
+        """First we get local transformation from tool to TCP, then we transform this new Pose (from TCP in tool frame), to the target position using input pose."""
+
+        """The question we aks ourself here is: where should my 'TCP' be to achieve the 'pose_source_frame' with my 'tool'"""
 
         # frame transforms
         # P_tcp|tgt = tgt_T_src * P_tcp|src
@@ -273,12 +283,36 @@ class TCPTransforms:
             if not tcp_tool_transform:
                 return None
             # create a tool pose in tcp_frame to which the transform from source (=tcp) frame can be applied
-            tcp_pose_tool_frame = tf2_geometry_msgs.Pose()
-            # tcp_pose_tool_frame.header.frame_id = self.tool_frame
-            tcp_pose_tool_frame.position.x = tcp_tool_transform.transform.translation.x
-            tcp_pose_tool_frame.position.y = tcp_tool_transform.transform.translation.y
-            tcp_pose_tool_frame.position.z = tcp_tool_transform.transform.translation.z
-            tcp_pose_tool_frame.orientation = tcp_tool_transform.transform.rotation
+            tcp_pose_tool_frame = tf2_geometry_msgs.PoseStamped()
+            tcp_pose_tool_frame.header.frame_id = self.tool_frame
+            tcp_pose_tool_frame.pose.position.x = tcp_tool_transform.transform.translation.x
+            tcp_pose_tool_frame.pose.position.y = tcp_tool_transform.transform.translation.y
+            tcp_pose_tool_frame.pose.position.z = tcp_tool_transform.transform.translation.z
+            if ignore_tool_to_tcp_rotation:  # don't set rotation
+                # Rotate vector the the TCP coordinate system
+                tool_in_tcp_transform = self.get_transform(self.tcp_frame, self.tool_frame)
+                if not tool_in_tcp_transform:
+                    return None
+                ## remove translation first we just want to rotate to orientation of tcp frame
+                tool_in_tcp_transform.transform.translation.x = 0.0
+                tool_in_tcp_transform.transform.translation.y = 0.0
+                tool_in_tcp_transform.transform.translation.z = 0.0
+                ## transform the vector to tcp_frame
+                vector_tool_orientated = Vector3Stamped()
+                vector_tool_orientated.header.frame_id = self.tool_frame
+                vector_tool_orientated.vector.x = tcp_pose_tool_frame.pose.position.x
+                vector_tool_orientated.vector.y = tcp_pose_tool_frame.pose.position.y
+                vector_tool_orientated.vector.z = tcp_pose_tool_frame.pose.position.z
+                vector_tcp_orientated = tf2_geometry_msgs.do_transform_vector3(
+                    vector_tool_orientated, tool_in_tcp_transform
+                )
+                tcp_pose_tool_frame.pose.position.x = vector_tcp_orientated.vector.x
+                tcp_pose_tool_frame.pose.position.y = vector_tcp_orientated.vector.y
+                tcp_pose_tool_frame.pose.position.z = vector_tcp_orientated.vector.z
+
+            else:
+                tcp_pose_tool_frame.pose.orientation = tcp_tool_transform.transform.rotation
+
             # create a transform from source tool to source frame
             tool_src_transform = tf2_geometry_msgs.TransformStamped()
             tool_src_transform.header.frame_id = source_frame
@@ -293,18 +327,18 @@ class TCPTransforms:
 
         if tcp_pose_tool_frame is not None:
             # get the tcp pose in source frame by applying tool to source frame transform to the tcp in tool frame pose
-            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose(
+            tcp_pose_source_frame = tf2_geometry_msgs.do_transform_pose_stamped(
                 tcp_pose_tool_frame, tool_src_transform
             )
         else:
             # the tcp pose is the source pose
             tcp_pose_source_frame = pose_source_frame
         # apply the target frame to source frame transformation
-        pose_target_frame = tf2_geometry_msgs.do_transform_pose(
+        pose_target_frame = tf2_geometry_msgs.do_transform_pose_stamped(
             tcp_pose_source_frame, src_tgt_transform
         )
 
-        return pose_target_frame
+        return pose_target_frame.pose
 
     def to_from_tcp_vec3_conversion(
         self, vec3_source_frame: Vector3Stamped, target_frame: str
