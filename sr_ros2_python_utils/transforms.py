@@ -126,6 +126,49 @@ def _quaternion_multiply(q0: ArrayLike, q1: ArrayLike) -> ArrayLike:
     return final_quaternion
 
 
+def _rotate_vector(
+    vector: Vector3,
+    theta_x: float = 0.0,
+    theta_y: float = 0.0,
+    theta_z: float = 0.0,
+) -> Vector3:
+    v = numpy.array([vector.x, vector.y, vector.z])
+    # Rotation matrices
+    R_x = numpy.array(
+        [
+            [1, 0, 0],
+            [0, numpy.cos(theta_x), -numpy.sin(theta_x)],
+            [0, numpy.sin(theta_x), numpy.cos(theta_x)],
+        ]
+    )
+    R_y = numpy.array(
+        [
+            [numpy.cos(theta_y), 0, numpy.sin(theta_y)],
+            [0, 1, 0],
+            [-numpy.sin(theta_y), 0, numpy.cos(theta_y)],
+        ]
+    )
+    R_z = numpy.array(
+        [
+            [numpy.cos(theta_z), -numpy.sin(theta_z), 0],
+            [numpy.sin(theta_z), numpy.cos(theta_z), 0],
+            [0, 0, 1],
+        ]
+    )
+
+    # Combined rotation matrix
+    R = R_z @ R_y @ R_x
+
+    # Rotate the vector
+    v_rotated = R @ v
+
+    vector_rotated = Vector3()
+    vector_rotated.x = v_rotated[0]
+    vector_rotated.y = v_rotated[1]
+    vector_rotated.z = v_rotated[2]
+    return vector_rotated
+
+
 class TCPTransforms:
     def __init__(
         self, node: Node, tcp_link_name: str = "tcp_link", tool_link_name: str = "tcp_gripper"
