@@ -273,6 +273,10 @@ class TCPTransforms:
         # P_tcp|src = src_T_tool * P_tcp|tool = tcp_pose_source_frame
         # src_T_tool = tool_src_transform (from input pose)
         # P_tcp|tool = tcp_pose_tool_frame (from tcp_tool_transform = lookup(tool, tcp))
+        pose_source_frame_stamped = tf2_geometry_msgs.PoseStamped()
+        pose_source_frame_stamped.header.frame_id = source_frame
+        pose_source_frame_stamped.pose.position = pose_source_frame.position
+        pose_source_frame_stamped.pose.orientation = pose_source_frame.orientation
 
         src_tgt_transform = self.get_transform(target_frame, source_frame)
         if not src_tgt_transform:
@@ -317,10 +321,10 @@ class TCPTransforms:
             tool_src_transform = tf2_geometry_msgs.TransformStamped()
             tool_src_transform.header.frame_id = source_frame
             tool_src_transform.child_frame_id = self.tool_frame
-            tool_src_transform.transform.translation.x = pose_source_frame.position.x
-            tool_src_transform.transform.translation.y = pose_source_frame.position.y
-            tool_src_transform.transform.translation.z = pose_source_frame.position.z
-            tool_src_transform.transform.rotation = pose_source_frame.orientation
+            tool_src_transform.transform.translation.x = pose_source_frame_stamped.pose.position.x
+            tool_src_transform.transform.translation.y = pose_source_frame_stamped.pose.position.y
+            tool_src_transform.transform.translation.z = pose_source_frame_stamped.pose.position.z
+            tool_src_transform.transform.rotation = pose_source_frame_stamped.pose.orientation
         else:
             tcp_pose_tool_frame = None
             tool_src_transform = None
@@ -332,7 +336,7 @@ class TCPTransforms:
             )
         else:
             # the tcp pose is the source pose
-            tcp_pose_source_frame = pose_source_frame
+            tcp_pose_source_frame = pose_source_frame_stamped
         # apply the target frame to source frame transformation
         pose_target_frame = tf2_geometry_msgs.do_transform_pose_stamped(
             tcp_pose_source_frame, src_tgt_transform
