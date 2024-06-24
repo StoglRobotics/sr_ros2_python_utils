@@ -61,10 +61,6 @@ class VisualizatonPublisher:
             seconds, nanoseconds = self.node.get_clock().now().seconds_nanoseconds()
             ms = seconds * 1000 + nanoseconds // 1_000_000
             used_id = int(ms) & 0x7FFFFFF
-            print(f"seconds= {seconds}")
-            print(f"nanoseconds={nanoseconds}")
-            print(f"ms={ms}")
-            print(f"ms={used_id}")
         marker.id = used_id
         marker.type = Marker.ARROW
         marker.action = Marker.ADD
