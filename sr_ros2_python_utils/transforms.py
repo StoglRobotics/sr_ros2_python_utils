@@ -126,6 +126,21 @@ def _quaternion_multiply(q0: ArrayLike, q1: ArrayLike) -> ArrayLike:
     return final_quaternion
 
 
+def _mirror_vector_at_axis(
+    vector: Vector3, x_axis: bool = False, y_axis: bool = False, z_axis: bool = False
+) -> Vector3:
+    x_mirror = -1 if x_axis else 1
+    y_mirror = -1 if y_axis else 1
+    z_mirror = -1 if z_axis else 1
+
+    mirrored_vector = Vector3()
+    mirrored_vector.x = x_mirror * vector.x
+    mirrored_vector.y = y_mirror * vector.y
+    mirrored_vector.z = z_mirror * vector.z
+
+    return mirrored_vector
+
+
 def _rotate_vector(
     vector: Vector3,
     theta_x: float = 0.0,
@@ -387,13 +402,26 @@ class TCPTransforms:
 
         return pose_target_frame.pose
 
-    def to_from_tcp_vec3_conversion(
-        self, vec3_source_frame: Vector3Stamped, target_frame: str
+    def transform_vector3stamped_to_target_frame(
+        self,
+        vec3_source_frame: Vector3Stamped,
+        target_frame: str,
+        ignore_translation: bool = False,
+        ignore_rotation: bool = False,
     ) -> Vector3Stamped:
         """Apply tf transformation to a vector3"""
         src_tgt_transform = self.get_transform(target_frame, vec3_source_frame.header.frame_id)
         if not src_tgt_transform:
             return None
+        if ignore_translation:
+            src_tgt_transform.transform.translation.x = 0.0
+            src_tgt_transform.transform.translation.y = 0.0
+            src_tgt_transform.transform.translation.z = 0.0
+        if ignore_rotation:
+            src_tgt_transform.transform.rotation.x = 0.0
+            src_tgt_transform.transform.rotation.y = 0.0
+            src_tgt_transform.transform.rotation.z = 0.0
+            src_tgt_transform.transform.rotation.w = 1.0
 
         vec3_target_frame = tf2_geometry_msgs.do_transform_vector3(
             vec3_source_frame, src_tgt_transform
